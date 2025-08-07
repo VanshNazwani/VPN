@@ -1,21 +1,41 @@
-import mongoose from 'mongoose'; // Import Mongoose library for MongoDB interactions
+// firestore/models/lecture.model.js
 
-// Define a new schema for lectures
-const lectureSchema = new mongoose.Schema({
-  title:        { type: String, required: true, trim: true },               // Lecture title (required, trimmed)
-  description:  { type: String, default: '' },                              // Brief description (optional, defaults to empty)
-  videoUrl:     { type: String, required: true },                           // Full YouTube URL (required)
-  youtubeId:    { type: String, required: true, index: true },              // Extracted YouTube video ID (required, indexed)
-  category:     { type: String, default: '' },                              // Category name (optional, defaults to empty)
-  duration:     { type: Number },                                           // Video duration in seconds (optional)
-  tags:         { type: [String], default: [] },                            // Array of tag strings (optional, defaults to empty array)
-  createdBy:    { type: mongoose.Schema.Types.ObjectId,                     // Reference to User who created
-                   ref: 'User',                                            //   - ref: points to 'User' collection
-                   required: true }                                        //   - required
-}, {
-  timestamps: true,    // Automatically add `createdAt` and `updatedAt` fields
-  versionKey: false    // Disable the `__v` version key
-});
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import db from "../config/firebase.admin.js"; // Firestore db instance
 
-// Compile and export the model named 'Lecture' based on the schema
-export const Lecture = mongoose.model('Lecture', lectureSchema);
+const LECTURES_COLLECTION = "lectures";
+
+// Create a new lecture document
+export const createLecture = async (lectureData) => {
+  const {
+    title,
+    description = "",
+    videoUrl,
+    youtubeId,
+    category = "",
+    duration = null,
+    tags = [],
+    createdBy, // Should be a string user ID
+  } = lectureData;
+
+  // Validate required fields
+  if (!title || !videoUrl || !youtubeId || !createdBy) {
+    throw new Error("Missing required fields");
+  }
+
+  const newLecture = {
+    title: title.trim(),
+    description,
+    videoUrl,
+    youtubeId,
+    category,
+    duration,
+    tags,
+    createdBy,               // Reference to User UID (not ref like in Mongoose)
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  };
+
+  const lectureRef = await addDoc(collection(db, LECTURES_COLLECTION), newLecture);
+  return lectureRef.id;
+};

@@ -1,26 +1,21 @@
-
-
 // controllers/register.controller.js
-import User from '../models/user.model.js';             // Mongoose User model
-import jwt from 'jsonwebtoken';                          // JSON Web Token library
-import { sendMail } from '../models/emailTemplates.model.js'; // Email sending utility
 
-const JWT_SECRET = process.env.JWT_SECRET || 'secret123';  // Secret key for token generation
+import jwt from 'jsonwebtoken';
+import { sendMail } from '../models/emailTemplates.model.js';
+import {hashPassword} from  '../middleweare/hash.password.js'
 
-/**
- * @desc    Register a new user, send welcome email, and return JWT
- * @route   POST /api/register
- * @access  Public
- */
+// Firebase Firestore
+import db from '../config/firebase.admin.js';
+import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'secret123';
+
 export const registerUser = async (req, res, next) => {
   try {
-    // Destructure expected fields from request body
     const { email, password, name, dob, mobile } = req.body;
 
-    // Debug log of incoming data (remove in production)
     console.log('Register attempt:', { email, name, dob, mobile });
 
-    // Ensure required fields are present
     if (!email || !password) {
       return res.status(400).json({
         success: false,
@@ -28,59 +23,62 @@ export const registerUser = async (req, res, next) => {
       });
     }
 
-    // Check if user already exists in DB
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
+    // 🔍 Check if user already exists (by email)
+    const usersRef = collection(db, 'ji_users');
+    const q = query(usersRef, where('email', '==', email));
+    const snapshot = await getDocs(q);
+
+    if (!snapshot.empty) {
       return res.status(400).json({
         success: false,
         message: 'User already exists',
       });
     }
+    const hashedPassword = await hashPassword(password);
 
-    // Prepare dynamic variables for registration email
-    const variables = {
-      '{full_name}': name || 'User',
-      '{email}': email,
-      '{login_link}': 'https://your-login-url.com'
+    // 📧 Prepare email
+
+   const emailData = {
+        to: email,
+        templateType: 'registration',
+        variables: {
+        full_name: 'Learn Node.js',
+        email: '2017subodih2017@gmail.com',
+        login_link: 'https://your-login-url.com'
+       }
     };
 
-    // Email details
-    const emailData = {
-      to: email,
-      templateType: 'registration', // email template key
-      variables
-    };
 
-    // Send email asynchronously
     await sendMail(emailData);
 
-    // Create and save new user instance
-    const newUser = new User({
+    // 🔐 Save new user to Firestore
+    const newUserDoc = await addDoc(usersRef, {
       email,
-      password_hash: password, // Under the hood, model will hash this
+      password_hash: hashedPassword, // Make sure to hash it before production use!
       name: name || null,
       dob: dob || null,
-      mobile: mobile || null
+      mobile: mobile || null,
+      role: 'student',
+      resetPasswordToken: null,
+      resetPasswordExpires: null,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
     });
-    await newUser.save();
 
-    // Generate a JWT token for authentication
+    // 🔑 Generate token
     const token = jwt.sign(
-      { id: newUser._id },
+      { id: newUserDoc.id }, // Firestore doc ID
       JWT_SECRET,
       { expiresIn: '7d' }
     );
 
-    // Respond with success payload
     return res.status(201).json({
       success: true,
       message: 'User registered successfully',
       token
     });
   } catch (error) {
-    // Log full error for debugging (avoid leaking in prod)
     console.error('Registration Error:', error);
-    // Pass error to Express error handler or send generic response
     return res.status(500).json({
       success: false,
       message: 'Server Error',

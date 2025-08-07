@@ -8,10 +8,10 @@ const router = express.Router();
 // All lecture routes require valid token
 router.use(authenticate);
 
-router.post('/',     LecturesCtrl.createLecture);
-router.get('/',      LecturesCtrl.getAllLectures);
-router.get('/:id',   LecturesCtrl.getLectureById);
-router.put('/:id',   LecturesCtrl.updateLecture);
-router.delete('/:id',LecturesCtrl.deleteLecture);
+router.post('/lecture',  LecturesCtrl.createLecture);
+router.get('/lecture',      LecturesCtrl.getAllLectures);
+router.get('/lecture:id',   LecturesCtrl.getLectureById);
+router.put('/lecture:id',   LecturesCtrl.updateLecture);
+router.delete('/lecture:id',LecturesCtrl.deleteLecture);
 
 export default router;

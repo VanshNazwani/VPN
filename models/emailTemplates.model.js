@@ -1,132 +1,144 @@
-import mongoose from 'mongoose';
-import nodemailer from 'nodemailer';
+// models/emailTemplates.model.js
 
-import { getActiveMailServer } from './mail.server.model.js';
+import db from "../config/firebase.admin.js"; // Firestore DB
+import nodemailer from "nodemailer";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  getDoc,
+  doc,
+  query,
+  where,
+  updateDoc,
+  deleteDoc,
+  serverTimestamp,
+} from "firebase/firestore";
+ const { getActiveMailServer } = await import("../models/mail.server.model.js"); // Lazy import
 
 
-//  Email Template Schema
-const emailTemplateSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true,
-    unique: true // e.g., "Welcome Email", "Password Reset"
-  },
-  type: {
-    type: String,
-    required: true,
-    unique: true // e.g., "register", "forgot_password"
-  },
-  subject: {
-    type: String,
-    required: true   // e.g., "Congratulations register", "Congratulations forgot_password"
-  },
-  msg_body: {
-    type: String, // HTML or text content with {{placeholders}}
-    required: true
-  },
-  status: {
-    type: Boolean,
-    default: true
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-  updatedAt: Date
-});
+const COLLECTION_NAME = "email_templates";
 
-// Auto-update `updatedAt` before saving
-emailTemplateSchema.pre('save', function (next) {
-  this.updatedAt = new Date();
-  next();
-});
+/** 🔧 Create a new email template */
+export const createEmailTemplate = async (data) => {
+  data.createdAt = serverTimestamp();
+  data.updatedAt = serverTimestamp();
+  const docRef = await addDoc(collection(db, COLLECTION_NAME), data);
+  return { id: docRef.id, ...data };
+};
 
-const EmailTemplate = mongoose.model('email_templates', emailTemplateSchema);
+/** 📄 Get all email templates */
+export const getAllEmailTemplates = async () => {
+  const snapshot = await getDocs(collection(db, COLLECTION_NAME));
+  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+};
 
-/**
- * Replace placeholders in template with provided variables
- * @param {string} template  The raw template string
- * @param {object} variables Key-value map of placeholders to values
- * @returns {string} Parsed HTML/text
- */
-const parseTemplate = (template, variables = {}) => {
+/** 🔍 Get a template by type (key) */
+export const getTemplateByType = async (type) => {
+  const q = query(collection(db, COLLECTION_NAME), where("type", "==", type), where("status", "==", true));
+  const snapshot = await getDocs(q);
+  if (snapshot.empty) return null;
+  return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+};
+
+/** 🛠️ Update a template by type */
+export const updateTemplateByType = async (type, updates) => {
+  const q = query(collection(db, COLLECTION_NAME), where("type", "==", type));
+  const snapshot = await getDocs(q);
+  if (snapshot.empty) return null;
+
+  const docRef = snapshot.docs[0].ref;
+  updates.updatedAt = serverTimestamp();
+  await updateDoc(docRef, updates);
+  const updatedDoc = await getDoc(docRef);
+  return { id: docRef.id, ...updatedDoc.data() };
+};
+
+/** ❌ Delete a template by type */
+export const deleteTemplateByType = async (type) => {
+  const q = query(collection(db, COLLECTION_NAME), where("type", "==", type));
+  const snapshot = await getDocs(q);
+  if (snapshot.empty) return false;
+
+  const docRef = snapshot.docs[0].ref;
+  await deleteDoc(docRef);
+  return true;
+};
+
+/** 🧩 Replace placeholders with values */
+export const parseTemplate = (template, variables = {}) => {
   return Object.keys(variables).reduce((result, key) => {
-    const regex = new RegExp(`{{${key}}}`, 'g');
+    const regex = new RegExp(`{{${key}}}`, "g");
     return result.replace(regex, variables[key]);
   }, template);
 };
 
-/**
- * Send an email using active mail server and a stored template
- * @param {object} emailData { to, templateType, variables }
- */
-const sendMail = async (emailData) => {
+/** 📩 Send an email using Firestore-stored template */
+export const sendMail = async (emailData) => {
   try {
     const mailServer = await getActiveMailServer();
+
     if (!mailServer) {
-      console.error('❌ No active mail server found.');
+      console.error("❌ No active mail server found.");
       return;
     }
-    const template = await EmailTemplate.findOne({ type: emailData.templateType, status: true });
+
+    const template = await getTemplateByType(emailData.templateType);
     if (!template) {
-      console.error(`❌ No active email template found for key: "${emailData.templateType}"`);
+      console.error(`❌ No active template found for type: "${emailData.templateType}"`);
       return;
     }
 
     const tos = emailData.to;
     if (!tos) {
-      console.error('❌ No recipient email address provided.');
+      console.error("❌ No recipient email address provided.");
       return;
     }
 
     const subject = template.subject;
-    const body = parseTemplate(template.msg_body, emailData.variables); // Note: you used 'variables' but the `emailData` object has `variables`
-      let secure = false;
-      let requireTLS = false;
+    const body = parseTemplate(template.msg_body, emailData.variables || {});
 
-      if (mailServer.encryption === 'ssl' || mailServer.encryption === 2) {
-        secure = true;         // SSL on port 465
-      } else if (mailServer.encryption === 'tls' || mailServer.encryption === 1) {
-        requireTLS = true;     // TLS on port 587
-      }
+    let secure = false;
+    let requireTLS = false;
+
+    if (mailServer.encryption === "ssl" || mailServer.encryption === 2) {
+      secure = true;
+    } else if (mailServer.encryption === "tls" || mailServer.encryption === 1) {
+      requireTLS = true;
+    }
 
     const transporter = nodemailer.createTransport({
       host: mailServer.server_ip,
       port: mailServer.port,
-      secure: secure,
-      requireTLS: requireTLS,
+      secure,
+      requireTLS,
       auth: {
         user: mailServer.username,
-        pass: mailServer.password
+        pass: mailServer.password,
+      },
+    });
+
+    await transporter.verify((error, success) => {
+      if (error) {
+        console.error("❌ Mail server verification failed:", error);
+      } else {
+        console.log("✅ Mail server is ready:", success);
       }
     });
-  
-      await transporter.verify((error, success) => {
-          if (error) {
-            console.error('Verify error:', error);
-          } else {
-            console.log('Server is ready to take our messages',success);
-          }
-        });
 
     const mailOptions = {
-      from: `"${mailServer.sender_name || 'No-Reply'}" <${mailServer.from_email}>`,
-      to: tos, // Change 'to' to 'tos' to match the variable
+      from: `"${mailServer.sender_name || "No-Reply"}" <${mailServer.from_email}>`,
+      to: tos,
       subject,
-      html: body
+      html: body,
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Email sent successfully. Message ID:', info.messageId);
+    console.log("✅ Email sent successfully. Message ID:", info.messageId);
+    return info;
   } catch (error) {
-    console.error('❌ Failed to send email:', error);
+    console.error("❌ Failed to send email:", error);
     console.error(error.stack);
+    throw error;
   }
 };
-
-export { EmailTemplate, sendMail, parseTemplate };
-
-
-
-
-

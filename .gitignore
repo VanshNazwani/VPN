@@ -40,3 +40,6 @@ ehthumbs.db
 *.gz
 *.zip
 *.bak
+
+# Firebase service account key
+/serviceAccountKey.json

@@ -16,34 +16,34 @@ const router = express.Router();
  * @desc    Create new email template
  * @access  Protected
  */
-router.post('/', createTemplate);
+router.post('/email-template', createTemplate);
 
 /**
  * @route   GET /email
  * @desc    Retrieve all email templates
  * @access  Protected
  */
-router.get('/', getAllTemplates);
+router.get('/email-template', getAllTemplates);
 
 /**
  * @route   GET /email/:key
  * @desc    Retrieve a template by its key
  * @access  Protected
  */
-router.get('/:key', getTemplateByKey);
+router.get('/email-template:key', getTemplateByKey);
 
 /**
  * @route   PUT /email/:key
  * @desc    Update an existing template
  * @access  Protected
  */
-router.put('/:key', updateTemplate);
+router.put('/email-template:key', updateTemplate);
 
 /**
  * @route   DELETE /email/:key
  * @desc    Delete a template by its key
  * @access  Protected
  */
-router.delete('/:key', deleteTemplate);
+router.delete('/email-template:key', deleteTemplate);
 
 export default router;

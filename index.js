@@ -9,6 +9,8 @@ import registerRoutes from './routes/register.routes.js'; // Assuming you have a
 import emailRoutes   from './routes/emailTemplate.routes.js';
 import lectureRoutes from './routes/lecture.routes.js';
 import { authenticate } from './middleweare/auth.middleware.js';
+import mailServerRoutes from './routes/mail.server.routes.js';
+
 
 const app = express();
 
@@ -20,6 +22,8 @@ app.use(bodyParser.json());
 // Parse URL-encoded bodies (form submissions)
 app.use(bodyParser.urlencoded({ extended: true }));
 
+app.use('/', emailRoutes);       // Email template management
+
 // ── Public Routes (no auth required) ─────────────────────────────────────────
 app.use('/', registerRoutes);       // Mount register route
 
@@ -30,7 +34,8 @@ app.use('/', authRoutes);   // mounts /login, /forgot-password, /reset-password
 app.use(authenticate);     // Any subsequent route requires a valid JWT
 
 // ── Protected Routes ─────────────────────────────────────────────────────────
-app.use('/email', emailRoutes);       // Email template management
-app.use('/lectures', lectureRoutes);   // Lecture CRUD
+
+app.use('/', lectureRoutes);   // Lecture CRUD
+app.use('/',mailServerRoutes);
 
 export default app;

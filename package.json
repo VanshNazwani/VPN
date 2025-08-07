@@ -2,10 +2,10 @@
   "name": "vpnds-academy",
   "version": "1.0.0",
   "description": "",
-  "main": "server.js",
+  "main": "server.firebase.js",
   "type": "module",
   "scripts": {
-    "start": "nodemon server.js",
+    "start": "nodemon server.firebase.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -20,6 +20,7 @@
   },
   "homepage": "https://github.com/vpndigitalservice/vpnds-academy#readme",
   "dependencies": {
+    "@firebase/firestore": "^4.9.0",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
