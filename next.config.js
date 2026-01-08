@@ -1,14 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  images: { 
+  images: {
     unoptimized: true,
-    domains: ['images.pexels.com', 'res.cloudinary.com', 'img.youtube.com']
+    remotePatterns: [
+      { protocol: 'https', hostname: 'images.pexels.com' },
+      { protocol: 'https', hostname: 'res.cloudinary.com' },
+      { protocol: 'https', hostname: 'img.youtube.com' }
+    ]
   },
   experimental: {
-    serverActions: true,
+    // serverActions should be an object in newer Next versions
+    serverActions: {},
   },
 };
 
