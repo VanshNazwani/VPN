@@ -1,0 +1,27 @@
+// {
+//   "extends": "next/core-web-vitals",
+//   "parser": "@babel/eslint-parser",
+//   "parserOptions": {
+//     "requireConfigFile": false,
+//     "babelOptions": {
+//       "plugins": [
+//         ["@babel/plugin-proposal-decorators", { "legacy": true }]
+//       ]
+//     }
+//   },
+//   "rules": {
+//     "react/prop-types": "off",
+//     "react/react-in-jsx-scope": "off",
+
+//   }
+// }
+
+{
+  "extends": ["next/core-web-vitals"],
+  "rules": {
+    "react/no-unescaped-entities": "off",
+    "@next/next/no-page-custom-font": "off",
+     "react/prop-types": "off",
+     "react/react-in-jsx-scope": "off",
+  }
+}
